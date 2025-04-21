@@ -28,8 +28,8 @@ export default function MemoryGame() {
   >([]);
 
   const getRandomPosition = () => {
-    const screenWidth = 400;
-    const screenHeight = 800;
+    const screenWidth = 350;
+    const screenHeight = 750;
     return {
       top: Math.random() * (screenHeight - 50),
       left: Math.random() * (screenWidth - 50),
@@ -184,8 +184,8 @@ export default function MemoryGame() {
               styles.dot,
               {
                 position: 'absolute',
-                top: dotPosition.top,
-                left: dotPosition.left,
+                top: dotPosition.top + 50,
+                left: dotPosition.left + 200,
                 backgroundColor: 'blue',
               },
             ]}
@@ -196,8 +196,8 @@ export default function MemoryGame() {
               styles.button,
               {
                 position: 'absolute',
-                top: buttonPosition.top,
-                left: buttonPosition.left,
+                top: buttonPosition.top + 50,
+                left: buttonPosition.left + 50,
                 backgroundColor: 'red',
               },
             ]}
