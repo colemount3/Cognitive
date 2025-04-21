@@ -1,89 +1,247 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
-// Memory Game Component
+
 export default function MemoryGame() {
+  const { name, ssn, reset } = useLocalSearchParams();
+  const router = useRouter();
+
+  const playerName = typeof name === 'string' ? name : '';
+  const playerSSN = typeof ssn === 'string' ? ssn : '';
+
   const [dotPosition, setDotPosition] = useState({ top: 0, left: 0 });
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
   const [responseTime, setResponseTime] = useState<number | null>(null);
   const [averageResponseTime, setAverageResponseTime] = useState<number>(0);
   const [numResponses, setNumResponses] = useState<number>(0);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(120);
 
-  // Function to generate random positions
+  const [gameState, setGameState] = useState<'waiting' | 'playing' | 'finished'>('waiting');
+  const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const [history, setHistory] = useState<
+    { name: string; ssn: string; score: number; averageTime: number }[]
+  >([]);
+
   const getRandomPosition = () => {
-    const screenWidth = 400; // Adjust these values based on your screen size
-    const screenHeight = 800; // Adjust these values based on your screen size
+    const screenWidth = 400;
+    const screenHeight = 800;
     return {
-      top: Math.random() * (screenHeight - 50), // 50 is the size of the dot/button
-      left: Math.random() * (screenWidth - 50), // 50 is the size of the dot/button
+      top: Math.random() * (screenHeight - 50),
+      left: Math.random() * (screenWidth - 50),
     };
   };
 
-  // Start new round
   const startRound = () => {
     const newDotPosition = getRandomPosition();
     const newButtonPosition = getRandomPosition();
     setDotPosition(newDotPosition);
     setButtonPosition(newButtonPosition);
-    setStartTime(Date.now()); // Start timer when the dot appears
+    setStartTime(Date.now());
   };
 
-  // Handle button press (response)
   const handleButtonPress = () => {
     if (startTime) {
       const timeTaken = Date.now() - startTime;
       setResponseTime(timeTaken);
-      setNumResponses(prev => prev + 1);
-      setAverageResponseTime(prev =>
-        (prev * (numResponses) + timeTaken) / (numResponses + 1)
-      );
+      console.log('[DEBUG] timeTaken:', timeTaken);////////////
+
+      setNumResponses(prev => {
+        const newNum = prev + 1;
+        console.log('[DEBUG] Previous numResponses:', prev);/////////////
+        console.log('[DEBUG] New numResponses:', newNum);
+        setAverageResponseTime(currentAvg =>
+          (currentAvg * prev + timeTaken) / newNum
+          
+        );
+        return newNum;
+      });
     }
-    startRound(); // Start a new round
+    startRound();
   };
 
-  // Start first round on component mount
-  useEffect(() => {
-    startRound();
-  }, []);
+  const resetGame = () => {
+    if (timerId) clearTimeout(timerId);
+    if (intervalId) clearInterval(intervalId);
+    setTimerId(null);
+    setIntervalId(null);
+    setGameState('playing');
+    setNumResponses(0);
+    setAverageResponseTime(0);
+    setResponseTime(null);
+    setStartTime(null);
+    setTimeLeft(10); // Or whatever you want
+  };
+  
+  
 
+  const startGame = () => {
+    resetGame();
+    setGameState('playing');
+    setTimeLeft(10);
+  };
+  
+  
+
+  const endGame = () => {
+    setGameState('finished');
+    if (timerId) clearTimeout(timerId);
+    if (intervalId) clearInterval(intervalId);
+
+    
+  };
+  const saveGameToHistory = () => {
+    console.log('[DEBUG] Running saveGameToHistory with router.push');
+
+    const historyEntry = {
+      name: playerName,
+      ssn: playerSSN,
+      score: numResponses,
+      averageTime: averageResponseTime,
+    };
+
+    setHistory((prevHistory) => [...prevHistory, historyEntry]);
+
+    // Navigate to the GameHistory page, passing the history as params
+    router.push({
+      pathname: '/GameHistory',
+      params: {
+        history: encodeURIComponent(JSON.stringify([...history, historyEntry])),
+        numResponses: numResponses.toString(),
+        averageResponseTime: averageResponseTime.toString(),
+      },
+    });
+
+    console.log('[DEBUG] History updated and pushed to GameHistory');
+  };
+  useEffect(() => {
+    if (reset === 'true') {
+      resetGame();
+      // Push to same screen without the reset param so it doesn't keep triggering
+      router.replace({
+        pathname: '/game',
+        params: { name: playerName, ssn: playerSSN, reset: undefined },
+        
+      });
+    }
+  }, [reset]);
+  
+  useEffect(() => {
+    if (gameState === 'playing') {
+      const interval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setGameState('finished');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+  
+      return () => clearInterval(interval); // Cleanup when game ends or component unmounts
+    }
+  }, [gameState]);
+  
+  useEffect(() => {
+    if (gameState === 'finished') {
+      console.log('[DEBUG] Game state changed to finished');
+      saveGameToHistory();
+    }
+  }, [gameState]);
+  
+  
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Memory Game</Text>
-      <Text style={styles.instruction}>Press the red button as quickly as possible!</Text>
-      <Text style={styles.responseTime}>
-        {responseTime ? `Response Time: ${(responseTime / 1000).toFixed(2)}s` : 'Press the button!'}
-      </Text>
-      <Text style={styles.averageResponseTime}>
-        {numResponses > 0
-          ? `Average Response Time: ${(averageResponseTime / 1000).toFixed(2)}s`
-          : ''}
-      </Text>
+      {gameState === 'waiting' && (
+        <TouchableOpacity onPress={startGame} style={styles.fullscreenButton}>
+          <Text style={styles.tapToStart}>Tap anywhere to start</Text>
+        </TouchableOpacity>
+      )}
 
-      <View
-        style={[
-          styles.dot,
-          {
-            position: 'absolute',
-            top: dotPosition.top,
-            left: dotPosition.left,
-            backgroundColor: 'blue',
-          },
-        ]}
-      />
+      {gameState === 'playing' && (
+        <>
+          <Text style={styles.title}>Memory Game</Text>
+          <Text style={styles.instruction}>Press the red button as quickly as possible!</Text>
+          <Text style={styles.responseTime}>
+            {responseTime !== null
+              ? `Response Time: ${(responseTime / 1000).toFixed(2)}s`
+              : 'Press the button!'}
+          </Text>
+          <Text style={styles.timerText}>Time Left: {timeLeft}s</Text>
+          <Text style={styles.averageResponseTime}>
+            {numResponses > 0
+              ? `Average Response Time: ${(averageResponseTime / 1000).toFixed(2)}s`
+              : ''}
+          </Text>
 
-      <TouchableOpacity
-        style={[
-          styles.button,
-          {
-            position: 'absolute',
-            top: buttonPosition.top,
-            left: buttonPosition.left,
-            backgroundColor: 'red',
-          },
-        ]}
-        onPress={handleButtonPress}
-      />
+          <View
+            style={[
+              styles.dot,
+              {
+                position: 'absolute',
+                top: dotPosition.top,
+                left: dotPosition.left,
+                backgroundColor: 'blue',
+              },
+            ]}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              {
+                position: 'absolute',
+                top: buttonPosition.top,
+                left: buttonPosition.left,
+                backgroundColor: 'red',
+              },
+            ]}
+            onPress={handleButtonPress}
+          />
+        </>
+      )}
+
+      {gameState === 'finished' && (
+        <>
+              
+          <Text style={styles.finishedText}>Evaluation Over</Text>
+          <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: '/GameHistory',
+              params: {
+                history: encodeURIComponent(JSON.stringify(history)),
+                numResponses: numResponses.toString(),
+                averageResponseTime: averageResponseTime.toString(),
+              },
+    })
+  }
+>
+         <Text style={styles.historyLink}>Save Evaluation to History</Text>
+
+         
+        </TouchableOpacity>
+
+
+        <TouchableOpacity
+       onPress={() => {
+       router.push({
+       pathname: '/preGame',
+        });
+     }}
+>
+  <Text style={styles.historyLink}>End</Text>
+</TouchableOpacity>
+
+
+
+        </>
+      )}
     </View>
   );
 }
@@ -122,5 +280,31 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
   },
+  finishedText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'black',
+  },
+  fullscreenButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#eee',
+    width: '100%',
+    height: '100%',
+  },
+  tapToStart: {
+    fontSize: 24,
+    color: '#000',
+  },
+  timerText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  historyLink: {
+    fontSize: 18,
+    color: 'blue',
+    marginTop: 20,
+  },
 });
-
