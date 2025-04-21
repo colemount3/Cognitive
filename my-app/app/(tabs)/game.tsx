@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+//import { router } from 'expo-router';
 
 
 export default function MemoryGame() {
@@ -83,6 +83,7 @@ export default function MemoryGame() {
     resetGame();
     setGameState('playing');
     setTimeLeft(10);
+    startRound();////////////////////////////////////////
   };
   
   
@@ -94,30 +95,41 @@ export default function MemoryGame() {
 
     
   };
-  const saveGameToHistory = () => {
-    console.log('[DEBUG] Running saveGameToHistory with router.push');
+  const saveGameToHistory = async () => {
+    try {
+      const existingHistoryString = await AsyncStorage.getItem('gameHistory');
+      const existingHistory = existingHistoryString ? JSON.parse(existingHistoryString) : [];
+  
+      const newEntry = {
+        name: playerName,
+        ssn: playerSSN,
+        score: numResponses,
+        averageTime: averageResponseTime,
+      };
+  
+      const updatedHistory = [...existingHistory, newEntry];
+      await AsyncStorage.setItem('gameHistory', JSON.stringify(updatedHistory));
+  
+      setHistory(updatedHistory); // update local state
+  
+      router.push({
+        pathname: '/GameHistory',
+        params: {
+          numResponses: numResponses.toString(),
+          averageResponseTime: averageResponseTime.toString(),
+        },
+      });
+  
+      console.log('[DEBUG] Game history saved with AsyncStorage');
+      const verify = await AsyncStorage.getItem('gameHistory');
+console.log('[DEBUG] Saved gameHistory contents:', verify);
 
-    const historyEntry = {
-      name: playerName,
-      ssn: playerSSN,
-      score: numResponses,
-      averageTime: averageResponseTime,
-    };
-
-    setHistory((prevHistory) => [...prevHistory, historyEntry]);
-
-    // Navigate to the GameHistory page, passing the history as params
-    router.push({
-      pathname: '/GameHistory',
-      params: {
-        history: encodeURIComponent(JSON.stringify([...history, historyEntry])),
-        numResponses: numResponses.toString(),
-        averageResponseTime: averageResponseTime.toString(),
-      },
-    });
-
-    console.log('[DEBUG] History updated and pushed to GameHistory');
+    } catch (err) {
+      console.error('[ERROR] Failed to save game history:', err);
+    }
   };
+  
+  
   useEffect(() => {
     if (reset === 'true') {
       resetGame();
