@@ -1,15 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 
-
 export default function GameHistory() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-
- 
 
   useFocusEffect(
     useCallback(() => {
@@ -27,14 +24,14 @@ export default function GameHistory() {
           setLoading(false);
         }
       };
-  
+
       loadHistory();
     }, [])
   );
 
-
-
   if (loading) {
+
+
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Game History</Text>
@@ -56,12 +53,13 @@ export default function GameHistory() {
     <View style={styles.container}>
       <Text style={styles.title}>Game History</Text>
       <ScrollView>
-      {[...history].reverse().map((entry, index) => (
+        {[...history].reverse().map((entry, index) => (
           <View key={index} style={styles.card}>
-            <Text>Name: {entry.name || 'Unknown'}</Text>
-            <Text>SSN: ***-**-{entry.ssn?.slice(-4) || 'XXXX'}</Text>
-            <Text>Score: {entry.score ?? 'N/A'}</Text>
-            <Text>Avg Time: {(Number(entry.averageTime) / 1000).toFixed(2)}s</Text>
+            <Text style={styles.cardText}>Name: {entry.name || 'Unknown'}</Text>
+            <Text style={styles.cardText}>SSN: ***-**-{entry.ssn?.slice(-4) || 'XXXX'}</Text>
+            <Text style={styles.cardText}>THC Intoxication Level: {entry.highLevel || 'N/A'}</Text>
+            <Text style={styles.cardText}>Score: {entry.score ?? 'N/A'}</Text>
+            <Text style={styles.cardText}>Avg Time: {(Number(entry.averageTime) / 1000).toFixed(2)}s</Text>
           </View>
         ))}
       </ScrollView>
@@ -88,6 +86,10 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 10,
     marginBottom: 10,
+  },
+  cardText: {
+    fontSize: 16,
+    marginBottom: 5,
   },
   emptyText: {
     textAlign: 'center',

@@ -6,11 +6,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 export default function MemoryGame() {
-  const { name, ssn, reset } = useLocalSearchParams();
+  const { name, ssn, highLevel, reset } = useLocalSearchParams();
   const router = useRouter();
 
   const playerName = typeof name === 'string' ? name : '';
   const playerSSN = typeof ssn === 'string' ? ssn : '';
+  const playerHighLevel = typeof highLevel === 'string' ? highLevel : '';
 
   const [dotPosition, setDotPosition] = useState({ top: 0, left: 0 });
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
@@ -48,12 +49,12 @@ export default function MemoryGame() {
     if (startTime) {
       const timeTaken = Date.now() - startTime;
       setResponseTime(timeTaken);
-      console.log('[DEBUG] timeTaken:', timeTaken);////////////
+      //console.log('[DEBUG] timeTaken:', timeTaken);////////////
 
       setNumResponses(prev => {
         const newNum = prev + 1;
-        console.log('[DEBUG] Previous numResponses:', prev);/////////////
-        console.log('[DEBUG] New numResponses:', newNum);
+        //console.log('[DEBUG] Previous numResponses:', prev);/////////////
+        //console.log('[DEBUG] New numResponses:', newNum);
         setAverageResponseTime(currentAvg =>
           (currentAvg * prev + timeTaken) / newNum
           
@@ -103,6 +104,7 @@ export default function MemoryGame() {
       const newEntry = {
         name: playerName,
         ssn: playerSSN,
+        highLevel: playerHighLevel,
         score: numResponses,
         averageTime: averageResponseTime,
       };
@@ -120,9 +122,9 @@ export default function MemoryGame() {
         },
       });
   
-      console.log('[DEBUG] Game history saved with AsyncStorage');
+      //console.log('[DEBUG] Game history saved with AsyncStorage');
       const verify = await AsyncStorage.getItem('gameHistory');
-console.log('[DEBUG] Saved gameHistory contents:', verify);
+//console.log('[DEBUG] Saved gameHistory contents:', verify);
 
     } catch (err) {
       console.error('[ERROR] Failed to save game history:', err);
@@ -136,7 +138,7 @@ console.log('[DEBUG] Saved gameHistory contents:', verify);
       // Push to same screen without the reset param so it doesn't keep triggering
       router.replace({
         pathname: '/game',
-        params: { name: playerName, ssn: playerSSN, reset: undefined },
+        params: { name: playerName, ssn: playerSSN, highLevel: playerHighLevel, reset: undefined },
         
       });
     }
@@ -161,10 +163,13 @@ console.log('[DEBUG] Saved gameHistory contents:', verify);
   
   useEffect(() => {
     if (gameState === 'finished') {
-      console.log('[DEBUG] Game state changed to finished');
-      saveGameToHistory();
+      //console.log('[DEBUG] Game state changed to finished');
+      saveGameToHistory().then(() => {
+        router.push('/TransferScreen'); // <--- NEW ROUTE
+      });
     }
   }, [gameState]);
+  
   
   
   return (
