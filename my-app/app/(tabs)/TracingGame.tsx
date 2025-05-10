@@ -1,31 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Button, Dimensions, Alert } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Button, Dimensions, Alert, PanResponder } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import 'react-native-gesture-handler';
 
 const stages = ['Trace the figure 8', 'Completely fill the circle', 'Accurately trace the lines'];
-const stageShapes = [
-  // Figure 8
-  'M150,150 C150,100 250,100 250,150 S150,200 150,150 S250,100 250,150',
-  // Circle
-  'M150,150 A100,100 0 1,1 150,149.99 Z',
-  // Lines
-  'M50,50 L100,50 L150,50 L200,50 L250,50 L300,50',
+
+const eight = [
+  'M175,235 A80,80 0 1,1 165,235.5 A80,80 0 1,1 175,235', // Figure 8
 ];
+const circle = [
+  'M275,235 A100,100 0 1,1 275,234.99 Z', // Circle
+];
+const lines = [
+  'M50,200 H300', // Line 1
+  'M50,300 H300', // Line 2
+  'M50,400 H300', // Line 3
+  'M50,400 H300', // Line 4
+];
+
+const stageShapes = [eight, circle, lines];
 
 const TracingGame = () => {
   const [stageIndex, setStageIndex] = useState(0);
   const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
-  const [path, setPath] = useState('');
+  const [paths, setPaths] = useState<string[]>([]); // Store multiple paths
   const [timeLeft, setTimeLeft] = useState(60);
-  const opacity = useSharedValue(1);
+  const [score, setScore] = useState({ inShape: 0, outOfShape: 0 });
+
+  const lastUpdate = useRef(Date.now()); // Ref to throttle updates
 
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          calculateScore();
           handleContinue();
           return 60;
         }
@@ -33,81 +40,108 @@ const TracingGame = () => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [stageIndex]);
+  }, [stageIndex, points]);
 
   const handleContinue = () => {
     if (stageIndex < stages.length - 1) {
       setStageIndex(stageIndex + 1);
       setPoints([]);
-      setPath('');
+      setPaths([]);
       setTimeLeft(60);
+      setScore({ inShape: 0, outOfShape: 0 });
     } else {
-      Alert.alert('Game Complete', 'Scoring will be shown here.');
+      Alert.alert('Game Complete', `Final Score: ${score.inShape}% in shape, ${score.outOfShape}% out of shape.`);
     }
   };
 
-  const panGesture = Gesture.Pan()
-    .onStart((event) => {
-      const { x, y } = event;
-      if (!isFinite(x) || !isFinite(y)) {
-        console.warn('Start ignored: invalid coords', x, y);
-        return;
+  const calculateScore = () => {
+    const targetPath = stageShapes[stageIndex];
+    let inShape = 0;
+    let outOfShape = 0;
+
+    points.forEach(({ x, y }) => {
+      // Simple check: if the point is close to the target path (this is a placeholder for a more complex algorithm)
+      const isInShape = Math.abs(x - 50) <= 50 && Math.abs(y - 50) <= 50; // Example bounding box check
+      if (isInShape) {
+        inShape++;
+      } else {
+        outOfShape++;
       }
-      console.log('Gesture start:', x, y);
-      setPoints([{ x, y }]);
-      setPath(`M${x},${y}`);
-    })
-    .onUpdate((event) => {
-      const { x, y } = event;
-      if (!isFinite(x) || !isFinite(y)) {
-        console.warn('Update ignored: invalid coords', x, y);
-        return;
-      }
-      console.log('Gesture update:', x, y);
-      setPoints((prev) => {
-        const updated = [...prev, { x, y }];
-        const newPath = updated.map((pt, i) => (i === 0 ? `M${pt.x},${pt.y}` : `L${pt.x},${pt.y}`)).join(' ');
-        setPath(newPath);
-        return updated;
-      });
-    })
-    .onEnd(() => {
-      opacity.value = withTiming(0.5, { duration: 200 }, () => {
-        opacity.value = withTiming(1, { duration: 200 });
-      });
     });
 
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+    const totalPoints = inShape + outOfShape;
+    setScore({
+      inShape: Math.round((inShape / totalPoints) * 100),
+      outOfShape: Math.round((outOfShape / totalPoints) * 100),
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (event) => {
+        const { locationX: x, locationY: y } = event.nativeEvent;
+        if (!isFinite(x) || !isFinite(y)) return;
+        setPaths((prev) => [...prev, `M${x},${y}`]); // Start a new path
+      },
+      onPanResponderMove: (event) => {
+        const now = Date.now();
+        if (now - lastUpdate.current < 16) return; // Throttle updates to ~60fps
+        lastUpdate.current = now;
+
+        const { locationX: x, locationY: y } = event.nativeEvent;
+        if (!isFinite(x) || !isFinite(y)) return;
+        setPaths((prev) => {
+          const updated = [...prev];
+          const currentPathIndex = updated.length - 1;
+          updated[currentPathIndex] += ` L${x},${y}`; // Append to the current path
+          return updated;
+        });
+      },
+      onPanResponderRelease: () => {
+        calculateScore(); // Optionally calculate score after each path
+      },
+    })
+  ).current;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Tracing Game</Text>
       <Text style={styles.subtitle}>{stages[stageIndex]}</Text>
       <Text style={styles.timer}>Time left: {timeLeft}s</Text>
+      <Text style={styles.score}>
+        Score: {score.inShape}% in shape, {score.outOfShape}% out of shape
+      </Text>
 
-      <View style={styles.canvasContainer}>
-        <GestureDetector gesture={panGesture}>
-          <Animated.View style={[styles.canvas, animatedStyle]}>
-            <Svg
-              width={Dimensions.get('window').width - 40}
-              height={Dimensions.get('window').height / 2}
-            >
-              <Path
-                d={stageShapes[stageIndex]}
-                stroke="#ccc"
-                strokeWidth={2}
-                fill="none"
-                opacity={0.5}
-              />
-              <Path
-                d={path}
-                stroke="blue"
-                strokeWidth={2}
-                fill="none"
-              />
-            </Svg>
-          </Animated.View>
-        </GestureDetector>
+      <View style={styles.canvasContainer} {...panResponder.panHandlers}>
+        <Svg
+          width={Dimensions.get('window').width - 40}
+          height={Dimensions.get('window').height / 2}
+        >
+          {stageShapes[stageIndex].map((shape, index) => (
+            <Path
+              key={`shape-${index}`}
+              d={shape}
+              stroke="#ccc"
+              strokeWidth={12} // Adjust stroke width for each shape
+              fill={stageIndex === 1 ? '#ccc' : 'none'} // Add fill only for the circle (stageIndex 1)
+              opacity={0.7} // Adjust opacity for each shape
+              strokeLinecap="round" // Smooth line endings
+              strokeLinejoin="round" // Smooth line joins
+            />
+          ))}
+          {paths.map((path, index) => (
+            <Path
+              key={`path-${index}`}
+              d={path}
+              stroke="blue"
+              strokeWidth={4} // User-drawn path styling
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+        </Svg>
       </View>
 
       <Button title="Continue" onPress={handleContinue} />
@@ -139,13 +173,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#900',
   },
+  score: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#090',
+  },
   canvasContainer: {
     width: Dimensions.get('window').width - 40,
     height: Dimensions.get('window').height / 2,
     backgroundColor: '#eee',
     marginBottom: 20,
-  },
-  canvas: {
-    flex: 1,
   },
 });
