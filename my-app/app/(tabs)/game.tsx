@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import { router } from 'expo-router';
-
 
 export default function MemoryGame() {
   const { name, ssn, highLevel, reset } = useLocalSearchParams();
@@ -16,7 +14,6 @@ export default function MemoryGame() {
   const [dotPosition, setDotPosition] = useState({ top: 0, left: 0 });
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
   const [responseTime, setResponseTime] = useState<number | null>(null);
-  const [averageResponseTime, setAverageResponseTime] = useState<number>(0);
   const [numResponses, setNumResponses] = useState<number>(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(120);
@@ -24,9 +21,9 @@ export default function MemoryGame() {
   const [gameState, setGameState] = useState<'waiting' | 'playing' | 'finished'>('waiting');
   const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
-  const [history, setHistory] = useState<
-    { name: string; ssn: string; score: number; averageTime: number }[]
-  >([]);
+  //const [history, setHistory] = useState<
+  //  { name: string; ssn: string; score: number; averageTime: number }[]
+  //>([]);
 
   const getRandomPosition = () => {
     const screenWidth = 350;
@@ -49,18 +46,8 @@ export default function MemoryGame() {
     if (startTime) {
       const timeTaken = Date.now() - startTime;
       setResponseTime(timeTaken);
-      //console.log('[DEBUG] timeTaken:', timeTaken);////////////
 
-      setNumResponses(prev => {
-        const newNum = prev + 1;
-        //console.log('[DEBUG] Previous numResponses:', prev);/////////////
-        //console.log('[DEBUG] New numResponses:', newNum);
-        setAverageResponseTime(currentAvg =>
-          (currentAvg * prev + timeTaken) / newNum
-          
-        );
-        return newNum;
-      });
+      setNumResponses(prev => prev + 1);
     }
     startRound();
   };
@@ -71,79 +58,36 @@ export default function MemoryGame() {
     setTimerId(null);
     setIntervalId(null);
     setGameState('playing');
-    setNumResponses(0);
-    setAverageResponseTime(0);
+    setNumResponses(1);
     setResponseTime(null);
     setStartTime(null);
     setTimeLeft(10); // Or whatever you want
   };
-  
-  
 
   const startGame = () => {
     resetGame();
     setGameState('playing');
     setTimeLeft(10);
-    startRound();////////////////////////////////////////
+    startRound();
   };
-  
-  
 
   const endGame = () => {
     setGameState('finished');
     if (timerId) clearTimeout(timerId);
     if (intervalId) clearInterval(intervalId);
-
-    
   };
-  const saveGameToHistory = async () => {
-    try {
-      const existingHistoryString = await AsyncStorage.getItem('gameHistory');
-      const existingHistory = existingHistoryString ? JSON.parse(existingHistoryString) : [];
-  
-      const newEntry = {
-        name: playerName,
-        ssn: playerSSN,
-        highLevel: playerHighLevel,
-        score: numResponses,
-        averageTime: averageResponseTime,
-      };
-  
-      const updatedHistory = [...existingHistory, newEntry];
-      await AsyncStorage.setItem('gameHistory', JSON.stringify(updatedHistory));
-  
-      setHistory(updatedHistory); // update local state
-  
-      router.push({
-        pathname: '/GameHistory',
-        params: {
-          numResponses: numResponses.toString(),
-          averageResponseTime: averageResponseTime.toString(),
-        },
-      });
-  
-      //console.log('[DEBUG] Game history saved with AsyncStorage');
-      const verify = await AsyncStorage.getItem('gameHistory');
-//console.log('[DEBUG] Saved gameHistory contents:', verify);
 
-    } catch (err) {
-      console.error('[ERROR] Failed to save game history:', err);
-    }
-  };
-  
-  
+
   useEffect(() => {
     if (reset === 'true') {
       resetGame();
-      // Push to same screen without the reset param so it doesn't keep triggering
       router.replace({
         pathname: '/game',
         params: { name: playerName, ssn: playerSSN, highLevel: playerHighLevel, reset: undefined },
-        
       });
     }
   }, [reset]);
-  
+
   useEffect(() => {
     if (gameState === 'playing') {
       const interval = setInterval(() => {
@@ -156,22 +100,28 @@ export default function MemoryGame() {
           return prev - 1;
         });
       }, 1000);
-  
-      return () => clearInterval(interval); // Cleanup when game ends or component unmounts
+
+      return () => clearInterval(interval);
     }
   }, [gameState]);
-  
+
   useEffect(() => {
     if (gameState === 'finished') {
-      //console.log('[DEBUG] Game state changed to finished');
-      saveGameToHistory().then(() => {
-        router.push('/TransferScreen'); // <--- NEW ROUTE
+                  console.log('DEBUG: GAME AVT is', numResponses > 0 ? (10 * 1000) / numResponses : 0);/////////////////////////////
+
+      router.push({
+        pathname: '/TracingGame',
+        params: {
+          name: playerName,
+          ssn: playerSSN,
+          highLevel: playerHighLevel,
+          score: numResponses,
+          averageTime: numResponses > 0 ? (10 * 1000) / numResponses : 0,
+        },
       });
     }
   }, [gameState]);
-  
-  
-  
+
   return (
     <View style={styles.container}>
       {gameState === 'waiting' && (
@@ -190,11 +140,6 @@ export default function MemoryGame() {
               : 'Press the button!'}
           </Text>
           <Text style={styles.timerText}>Time Left: {timeLeft}s</Text>
-          <Text style={styles.averageResponseTime}>
-            {numResponses > 0
-              ? `Average Response Time: ${(averageResponseTime / 1000).toFixed(2)}s`
-              : ''}
-          </Text>
 
           <View
             style={[
@@ -225,38 +170,30 @@ export default function MemoryGame() {
 
       {gameState === 'finished' && (
         <>
-              
           <Text style={styles.finishedText}>Evaluation Over</Text>
           <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: '/GameHistory',
-              params: {
-                history: encodeURIComponent(JSON.stringify(history)),
-                numResponses: numResponses.toString(),
-                averageResponseTime: averageResponseTime.toString(),
-              },
-    })
-  }
->
-         <Text style={styles.historyLink}>Save Evaluation to History</Text>
-
-         
-        </TouchableOpacity>
-
-
-        <TouchableOpacity
-       onPress={() => {
-       router.push({
-       pathname: '/preGame',
-        });
-     }}
->
-  <Text style={styles.historyLink}>End</Text>
-</TouchableOpacity>
-
-
-
+            onPress={() =>
+              router.push({
+                pathname: '/TracingGame',
+                params: {
+                  name: playerName,
+                  ssn: playerSSN,
+                  highLevel: playerHighLevel,
+                },
+              })
+            }
+          >
+            <Text style={styles.historyLink}>Continue to Tracing Game</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              router.push({
+                pathname: '/preGame',
+              });
+            }}
+          >
+            <Text style={styles.historyLink}>End</Text>
+          </TouchableOpacity>
         </>
       )}
     </View>
@@ -282,10 +219,6 @@ const styles = StyleSheet.create({
   responseTime: {
     fontSize: 20,
     marginBottom: 10,
-  },
-  averageResponseTime: {
-    fontSize: 20,
-    marginBottom: 20,
   },
   dot: {
     width: 50,
