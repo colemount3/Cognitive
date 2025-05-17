@@ -102,19 +102,25 @@ const TracingGame = () => {
 
   const lastUpdate = useRef(Date.now());
 
+useEffect(() => {
+  if (stageIndex === 0) {
+    setTimeLeft(60);
+  }
+}, [stageIndex]);
+  
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         calculateScore();
         if (prev <= 0.1) {
-          return 60;
+          return 0;
         }
         return +(prev - 0.1).toFixed(1);
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [stageIndex, points]);
+}, [stageIndex]);
 
   const calculateScore = () => {
     const numSamples = 400;
@@ -145,28 +151,69 @@ const TracingGame = () => {
     setTracingScore(averageScore);
   };
 
-  // Only save to history ONCE, after all stages are complete
-  const saveTracingToHistory = async (finalTracingScore: number) => {
-    try {
-      const existingHistoryString = await AsyncStorage.getItem('gameHistory');
-      const existingHistory = existingHistoryString ? JSON.parse(existingHistoryString) : [];
 
-      const newEntry = {
-        name: playerName,
-        ssn: playerSSN,
-        highLevel: playerHighLevel,
-        score: playerScore,
-        averageTime: playerAverageTime,
-        tracingScore: finalTracingScore,
-        date: new Date().toISOString(),
-      };
 
-      const updatedHistory = [newEntry, ...existingHistory];
-      await AsyncStorage.setItem('gameHistory', JSON.stringify(updatedHistory));
-    } catch (err) {
-      console.error('[ERROR] Failed to save tracing game history:', err);
+
+
+
+
+
+
+
+
+
+
+
+
+  
+const saveTracingToHistory = async (finalTracingScore: number) => {
+  try {
+    const existingHistoryString = await AsyncStorage.getItem('gameHistory');
+    const existingHistory = existingHistoryString ? JSON.parse(existingHistoryString) : [];
+
+    const newEntry = {
+      name: playerName,
+      ssn: playerSSN,
+      highLevel: playerHighLevel,
+      score: playerScore,
+      averageTime: playerAverageTime,
+      tracingScore: finalTracingScore,
+      date: new Date().toISOString(),
+    };
+
+    const updatedHistory = [newEntry, ...existingHistory];
+    await AsyncStorage.setItem('gameHistory', JSON.stringify(updatedHistory));
+
+    console.log('[DEBUG] Sending to Google Sheet:', JSON.stringify(newEntry));
+
+    const response = await fetch('https://script.google.com/macros/s/AKfycbxkAlJ0WVIWnmY46ZKySYa0yFw0GuF2-otRg4cki7xv6HHJw8Bjg44eEmF4dPc24gBDsw/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newEntry),
+      mode: 'no-cors',
+    });
+
+    const responseText = await response.text();
+    console.log('[DEBUG] Response from Google Script:', responseText);
+
+    if (!response.ok) {
+      console.error('[ERROR] Google Script HTTP error:', response.status);
     }
-  };
+
+  } catch (err) {
+    console.error('[ERROR] Failed to save tracing game history or send to Google Sheet:', err);
+  }
+};
+
+
+
+
+
+
+
+
+
+
 const [continueDisabled, setContinueDisabled] = useState(false);
 
 const handleContinue = async () => {
@@ -220,40 +267,54 @@ const handleContinue = async () => {
           tracingScore: finalTracingScore,
         },
       });
+
+      // --- Reset TracingGame state for next player ---
+      setStageIndex(0);
+      setPoints([]);
+      setPaths([]);
+      setTimeLeft(60);
+      setUncovered(1000);
+      setExtraInk(0);
+      setTracingScore(1000);
+      stageScores.current = [0, 0, 0];
+      setContinueDisabled(false);
+      hasSavedRef.current = false;
     }
   }
 };
     
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: (event) => {
-        const { locationX: x, locationY: y } = event.nativeEvent;
-        if (!isFinite(x) || !isFinite(y)) return;
-        setPaths((prev) => [...prev, `M${x},${y}`]);
-        setPoints(prev => [...prev, { x, y }]);
-      },
-      onPanResponderMove: (event) => {
-        const now = Date.now();
-        if (now - lastUpdate.current < 16) return;
-        lastUpdate.current = now;
+ const panResponder = useRef(
+  PanResponder.create({
+    onStartShouldSetPanResponder: () => timeLeft > 0,
+    onPanResponderGrant: (event) => {
+      if (timeLeft <= 0) return;
+      const { locationX: x, locationY: y } = event.nativeEvent;
+      if (!isFinite(x) || !isFinite(y)) return;
+      setPaths((prev) => [...prev, `M${x},${y}`]);
+      setPoints(prev => [...prev, { x, y }]);
+    },
+    onPanResponderMove: (event) => {
+      if (timeLeft <= 0) return;
+      const now = Date.now();
+      if (now - lastUpdate.current < 16) return;
+      lastUpdate.current = now;
 
-        const { locationX: x, locationY: y } = event.nativeEvent;
-        if (!isFinite(x) || !isFinite(y)) return;
+      const { locationX: x, locationY: y } = event.nativeEvent;
+      if (!isFinite(x) || !isFinite(y)) return;
 
-        setPaths((prev) => {
-          const updated = [...prev];
-          const currentPathIndex = updated.length - 1;
-          updated[currentPathIndex] += ` L${x},${y}`;
-          return updated;
-        });
+      setPaths((prev) => {
+        const updated = [...prev];
+        const currentPathIndex = updated.length - 1;
+        updated[currentPathIndex] += ` L${x},${y}`;
+        return updated;
+      });
 
-        setPoints((prev) => [...prev, { x, y }]);
-      },
-      onPanResponderRelease: () => {},
-    })
-  ).current;
+      setPoints((prev) => [...prev, { x, y }]);
+    },
+    onPanResponderRelease: () => {},
+  })
+).current;
 
   return (
     <View style={styles.container}>
