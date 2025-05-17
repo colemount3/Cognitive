@@ -32,6 +32,8 @@ export default function TabLayout() {
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="TransferScreen" options={{ href: null }} />
       <Tabs.Screen name="TracingGame" options={{ href: null }} />
+      <Tabs.Screen name="reactionTransfer" options={{ href: null }} />
+
     </Tabs>
   );
 }

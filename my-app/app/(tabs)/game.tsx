@@ -105,22 +105,24 @@ export default function MemoryGame() {
     }
   }, [gameState]);
 
-  useEffect(() => {
-    if (gameState === 'finished') {
-                  console.log('DEBUG: GAME AVT is', numResponses > 0 ? (10 * 1000) / numResponses : 0);/////////////////////////////
+useEffect(() => {
+  if (gameState === 'finished') {
+    const score = numResponses;
+    const averageTime = score > 0 ? (10 * 1000) / score : 0;
 
-      router.push({
-        pathname: '/TracingGame',
-        params: {
-          name: playerName,
-          ssn: playerSSN,
-          highLevel: playerHighLevel,
-          score: numResponses,
-          averageTime: numResponses > 0 ? (10 * 1000) / numResponses : 0,
-        },
-      });
-    }
-  }, [gameState]);
+    router.push({
+      pathname: '/TransferScreen',
+      params: {
+        name: playerName,
+        ssn: playerSSN,
+        highLevel: playerHighLevel,
+        score: score.toString(),
+        averageTime: averageTime.toString(),
+      },
+    });
+  }
+}, [gameState]);
+
 
   return (
     <View style={styles.container}>

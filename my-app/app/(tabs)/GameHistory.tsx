@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
-import { useLocalSearchParams } from 'expo-router';
 
 type GameHistoryEntry = {
   name: string;
@@ -16,14 +15,6 @@ type GameHistoryEntry = {
 };
 
 export default function GameHistory() {
-  const { name, ssn, highLevel, tracingScore, score, averageTime } = useLocalSearchParams();
-  const playerName = typeof name === 'string' ? name : '';
-  const playerSSN = typeof ssn === 'string' ? ssn : '';
-  const playerHighLevel = typeof highLevel === 'string' ? highLevel : '';
-  const playerTracingScore = typeof tracingScore === 'string' || typeof tracingScore === 'number' ? tracingScore : '';
-  const playerScore = typeof score === 'string' || typeof score === 'number' ? score : '';
-  const playerAverageTime = typeof averageTime === 'string' || typeof averageTime === 'number' ? averageTime : '';
-
   const [history, setHistory] = useState<GameHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,22 +23,8 @@ export default function GameHistory() {
       const loadHistory = async () => {
         try {
           const stored = await AsyncStorage.getItem('gameHistory');
-          let parsed = stored ? JSON.parse(stored) : [];
-          // If we have a new entry from params, show it at the top (not persisted)
-          if (playerName) {
-            parsed = [
-              {
-                name: playerName,
-                ssn: playerSSN,
-                highLevel: playerHighLevel,
-                tracingScore: playerTracingScore,
-                score: playerScore,
-                averageTime: playerAverageTime,
-                date: new Date().toISOString(),
-              },
-              ...parsed,
-            ];
-          }
+          const parsed = stored ? JSON.parse(stored) : [];
+          console.log('DEBUG: Loaded game history:', parsed); // Debugging step
           setHistory(parsed);
         } catch (err) {
           console.warn('Failed to load history:', err);
@@ -55,10 +32,8 @@ export default function GameHistory() {
           setLoading(false);
         }
       };
-            console.log('DEBUG: HISTORY AVT is', playerAverageTime);/////////////////////////////
-
       loadHistory();
-    }, [playerName, playerSSN, playerHighLevel, playerTracingScore, playerScore, playerAverageTime])
+    }, [])
   );
 
   if (loading) {
@@ -95,8 +70,10 @@ export default function GameHistory() {
               <Text style={styles.cardText}>Name: {entry.name}</Text>
               <Text style={styles.cardText}>SSN: ***-**-{entry.ssn?.slice(-4) || 'XXXX'}</Text>
               <Text style={styles.cardText}>THC Intoxication Level: {entry.highLevel || 'N/A'}</Text>
-              <Text style={styles.cardText}>Tracing Score: {entry.tracingScore ?? 'N/A'}</Text>
-              <Text style={styles.cardText}>Score: {entry.score ?? 'N/A'}</Text>
+              <Text style={styles.cardText}>Tracing Score: {entry.tracingScore || 'N/A'}</Text>
+              <Text style={styles.cardText}>
+                Score: {entry.score ?? entry.score ?? 'N/A'}
+              </Text>
               <Text style={styles.cardText}>
                 Avg Time: {entry.averageTime ? (Number(entry.averageTime) / 1000).toFixed(2) + 's' : 'N/A'}
               </Text>

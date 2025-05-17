@@ -22,7 +22,7 @@ export default function PreGame() {
     }
 
     router.push({
-      pathname: '/game',
+      pathname: '/reactionTransfer',
       params: { name, ssn, highLevel, reset: 'true' },
     });
   };

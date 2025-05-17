@@ -4,7 +4,6 @@ import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-const router = useRouter();
 const stages = ['Trace the figure 8', 'Completely fill the circle', 'Accurately trace the lines'];
 
 const eight = [
@@ -83,6 +82,8 @@ function sampleShapePoints(stageIndex: number, numSamples: number): { x: number;
 }
 
 const TracingGame = () => {
+  const hasSavedRef = useRef(false);
+  const router = useRouter();
   const { name, ssn, highLevel, score, averageTime } = useLocalSearchParams();
   const playerName = typeof name === 'string' ? name : '';
   const playerSSN = typeof ssn === 'string' ? ssn : '';
@@ -97,7 +98,7 @@ const TracingGame = () => {
   const [uncovered, setUncovered] = useState(1000);
   const [extraInk, setExtraInk] = useState(0);
   const [tracingScore, setTracingScore] = useState(1000);
-  const stageScores = useRef<number[]>([]);
+  const stageScores = useRef<number[]>([0, 0, 0]);
 
   const lastUpdate = useRef(Date.now());
 
@@ -106,7 +107,6 @@ const TracingGame = () => {
       setTimeLeft((prev) => {
         calculateScore();
         if (prev <= 0.1) {
-        //  handleContinue();
           return 60;
         }
         return +(prev - 0.1).toFixed(1);
@@ -138,12 +138,15 @@ const TracingGame = () => {
 
     const finalScore = Math.max(1000 - (uncoveredScore + outsideInk), 0);
     stageScores.current[stageIndex] = finalScore;
-    const validScores = stageScores.current.slice(0, stageIndex + 1);
+
+    // Calculate average only from completed stages
+    const validScores = stageScores.current.slice(0, stageIndex + 1).filter(s => typeof s === 'number');
     const averageScore = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
     setTracingScore(averageScore);
   };
 
-  const saveTracingToHistory = async () => {
+  // Only save to history ONCE, after all stages are complete
+  const saveTracingToHistory = async (finalTracingScore: number) => {
     try {
       const existingHistoryString = await AsyncStorage.getItem('gameHistory');
       const existingHistory = existingHistoryString ? JSON.parse(existingHistoryString) : [];
@@ -152,9 +155,9 @@ const TracingGame = () => {
         name: playerName,
         ssn: playerSSN,
         highLevel: playerHighLevel,
-        reactionTimeScore: playerScore,
+        score: playerScore,
         averageTime: playerAverageTime,
-        tracingScore,
+        tracingScore: finalTracingScore,
         date: new Date().toISOString(),
       };
 
@@ -164,25 +167,48 @@ const TracingGame = () => {
       console.error('[ERROR] Failed to save tracing game history:', err);
     }
   };
+const [continueDisabled, setContinueDisabled] = useState(false);
 
-  const handleContinue = async () => {
-    
-if (stageIndex < stages.length - 1) {
-  console.log(`DEBUG: Finished Stage ${stageIndex + 1} with Score: ${stageScores.current[stageIndex]}`);
-} else {
-  console.log(`DEBUG: Finished Final Stage with Score: ${stageScores.current[stageIndex]}`);
-}
+const handleContinue = async () => {
+  if (continueDisabled) return; // Prevent double call
+  setContinueDisabled(true);
 
-    if (stageIndex < stages.length - 1) {
-      setStageIndex(stageIndex + 1);
-      setPoints([]);
-      setPaths([]);
-      setTimeLeft(60);
-      setUncovered(1000);
-      setExtraInk(0);
-      console.log('DEBUG: TRACE AVT is', playerAverageTime);
-    } else {
-      await saveTracingToHistory();
+  // Always calculate and store the score for the current stage before proceeding
+  const numSamples = 400;
+  const threshold = 12;
+  const pathPoints = sampleShapePoints(stageIndex, numSamples);
+
+  let missed = 0;
+  pathPoints.forEach((shapePoint) => {
+    const isCovered = points.some(userPoint => distance(userPoint, shapePoint) < threshold);
+    if (!isCovered) missed++;
+  });
+  let uncoveredScore = Math.round(1000 * (missed / pathPoints.length));
+
+  let outsideInk = 0;
+  points.forEach((userPoint) => {
+    const isInside = pathPoints.some(shapePoint => distance(userPoint, shapePoint) < threshold);
+    if (!isInside) outsideInk++;
+  });
+
+  const finalScore = Math.max(1000 - (uncoveredScore + outsideInk), 0);
+  stageScores.current[stageIndex] = finalScore;
+
+  if (stageIndex < stages.length - 1) {
+    setStageIndex(stageIndex + 1);
+    setPoints([]);
+    setPaths([]);
+    setTimeLeft(60);
+    setUncovered(1000);
+    setExtraInk(0);
+    setContinueDisabled(false);
+  } else {
+    if (!hasSavedRef.current) {
+      hasSavedRef.current = true;
+      // Compute the final average tracing score from all three stages
+      const allScores = stageScores.current.slice(0, 3).filter(s => typeof s === 'number');
+      const finalTracingScore = Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
+      await saveTracingToHistory(finalTracingScore);
       router.push({
         pathname: '/GameHistory',
         params: {
@@ -191,12 +217,13 @@ if (stageIndex < stages.length - 1) {
           highLevel: playerHighLevel,
           score: playerScore,
           averageTime: playerAverageTime,
-          tracingScore,
+          tracingScore: finalTracingScore,
         },
       });
     }
+  }
+};
     
-  };
 
   const panResponder = useRef(
     PanResponder.create({

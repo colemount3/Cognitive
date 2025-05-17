@@ -1,10 +1,24 @@
 // app/TransferScreen.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function TransferScreen() {
   const router = useRouter();
+  const { name, ssn, highLevel, score, averageTime } = useLocalSearchParams();
+
+  const handleContinue = () => {
+    router.push({
+      pathname: '/TracingGame',
+      params: {
+        name,
+        ssn,
+        highLevel,
+        score,
+        averageTime,
+      },
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -15,7 +29,7 @@ export default function TransferScreen() {
 
       <TouchableOpacity
         style={styles.fullscreenButton}
-        onPress={() => router.push('/TracingGame')}
+        onPress={handleContinue}
       />
     </View>
   );
