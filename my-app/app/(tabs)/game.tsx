@@ -134,14 +134,14 @@ useEffect(() => {
 
       {gameState === 'playing' && (
         <>
-          <Text style={styles.title}>Memory Game</Text>
-          <Text style={styles.instruction}>Press the red button as quickly as possible!</Text>
-          <Text style={styles.responseTime}>
-            {responseTime !== null
-              ? `Response Time: ${(responseTime / 1000).toFixed(2)}s`
-              : 'Press the button!'}
-          </Text>
           <Text style={styles.timerText}>Time Left: {timeLeft}s</Text>
+          <Text style={styles.instruction}>Press the red button as quickly as possible!</Text>
+          
+
+
+
+
+         
 
           <View
             style={[

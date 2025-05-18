@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Button, Dimensions, PanResponder } from 'react-
 import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+
 
 const stages = ['Trace the figure 8', 'Completely fill the circle', 'Accurately trace the lines'];
 
@@ -102,25 +104,38 @@ const TracingGame = () => {
 
   const lastUpdate = useRef(Date.now());
 
-useEffect(() => {
-  if (stageIndex === 0) {
-    setTimeLeft(60);
-  }
-}, [stageIndex]);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        calculateScore();
-        if (prev <= 0.1) {
-          return 0;
-        }
-        return +(prev - 0.1).toFixed(1);
-      });
-    }, 100);
 
-    return () => clearInterval(interval);
-}, [stageIndex]);
+useFocusEffect(
+  React.useCallback(() => {
+    setStageIndex(0);
+    setPoints([]);
+    setPaths([]);
+    setTimeLeft(60);
+    setUncovered(1000);
+    setExtraInk(0);
+    setTracingScore(1000);
+    stageScores.current = [0, 0, 0];
+    setContinueDisabled(false);
+    hasSavedRef.current = false;
+  }, [])
+);
+  
+ useEffect(() => {
+  if (timeLeft <= 0) return; // Don't start interval if timer is 0
+
+  const interval = setInterval(() => {
+    setTimeLeft((prev) => {
+      calculateScore();
+      if (prev <= 0.1) {
+        clearInterval(interval); // Stop the interval when timer hits 0
+        return 0;
+      }
+      return +(prev - 0.1).toFixed(1);
+    });
+  }, 100);
+
+  return () => clearInterval(interval);
+}, [stageIndex, timeLeft]);
 
   const calculateScore = () => {
     const numSamples = 400;
@@ -284,37 +299,35 @@ const handleContinue = async () => {
 };
     
 
- const panResponder = useRef(
-  PanResponder.create({
-    onStartShouldSetPanResponder: () => timeLeft > 0,
-    onPanResponderGrant: (event) => {
-      if (timeLeft <= 0) return;
-      const { locationX: x, locationY: y } = event.nativeEvent;
-      if (!isFinite(x) || !isFinite(y)) return;
-      setPaths((prev) => [...prev, `M${x},${y}`]);
-      setPoints(prev => [...prev, { x, y }]);
-    },
-    onPanResponderMove: (event) => {
-      if (timeLeft <= 0) return;
-      const now = Date.now();
-      if (now - lastUpdate.current < 16) return;
-      lastUpdate.current = now;
+ const panResponder = PanResponder.create({
+  onStartShouldSetPanResponder: () => timeLeft > 0,
+  onPanResponderGrant: (event) => {
+    if (timeLeft <= 0) return;
+    const { locationX: x, locationY: y } = event.nativeEvent;
+    if (!isFinite(x) || !isFinite(y)) return;
+    setPaths((prev) => [...prev, `M${x},${y}`]);
+    setPoints(prev => [...prev, { x, y }]);
+  },
+  onPanResponderMove: (event) => {
+    if (timeLeft <= 0) return;
+    const now = Date.now();
+    if (now - lastUpdate.current < 16) return;
+    lastUpdate.current = now;
 
-      const { locationX: x, locationY: y } = event.nativeEvent;
-      if (!isFinite(x) || !isFinite(y)) return;
+    const { locationX: x, locationY: y } = event.nativeEvent;
+    if (!isFinite(x) || !isFinite(y)) return;
 
-      setPaths((prev) => {
-        const updated = [...prev];
-        const currentPathIndex = updated.length - 1;
-        updated[currentPathIndex] += ` L${x},${y}`;
-        return updated;
-      });
+    setPaths((prev) => {
+      const updated = [...prev];
+      const currentPathIndex = updated.length - 1;
+      updated[currentPathIndex] += ` L${x},${y}`;
+      return updated;
+    });
 
-      setPoints((prev) => [...prev, { x, y }]);
-    },
-    onPanResponderRelease: () => {},
-  })
-).current;
+    setPoints((prev) => [...prev, { x, y }]);
+  },
+  onPanResponderRelease: () => {},
+});
 
   return (
     <View style={styles.container}>
