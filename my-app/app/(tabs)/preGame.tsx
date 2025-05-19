@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function PreGame() {
-  const [name, setName] = useState(undefined);
-  const [ssn, setSSN] = useState(undefined);
-  const [highLevel, setHighLevel] = useState(undefined);
+  const [name, setName] = useState<string | undefined>(undefined);
+  const [ssn, setSSN] = useState<string | undefined>(undefined);
+  const [highLevel, setHighLevel] = useState<string | undefined>(undefined);
+  const [age, setAge] = useState<string | undefined>(undefined);
   const router = useRouter();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setName(undefined);
+      setSSN(undefined);
+      setHighLevel(undefined);
+      setAge(undefined);
+    }, [])
+  );
 
   const startGame = () => {
     if (
@@ -15,7 +26,7 @@ export default function PreGame() {
       !/^[1-9]$|^10$/.test((highLevel || '').trim())
     ) {
       Alert.alert('Error', 'Please enter your name, last 4 of SSN, and a number from 1 to 10 for how high you are.');
-      setName(undefined); // Reset to undefined to show placeholder
+      setName(undefined); //  show placeholder
       setSSN(undefined);
       setHighLevel(undefined);
       return;
@@ -23,20 +34,22 @@ export default function PreGame() {
 
     router.push({
       pathname: '/reactionTransfer',
-      params: { name, ssn, highLevel, reset: 'true' },
+      params: { name, ssn, highLevel, age, reset: 'true' },
     });
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Player Info</Text>
-      <Text style={styles.subtitle}>Please enter your name, last 4 of SSN, and a number from 1 to 10 for how high you are.</Text>
+      <Text style={styles.subtitle}>
+        Please enter your name, last 4 of SSN, age, and a number from 1 to 10 for how high you are.
+      </Text>
 
       <TextInput
         style={styles.input}
         placeholder="Full Name"
         placeholderTextColor="#999"
-        value={name || undefined}
+        value={name ?? ''}
         onChangeText={setName}
       />
 
@@ -44,7 +57,7 @@ export default function PreGame() {
         style={styles.input}
         placeholder="Last 4 of SSN"
         placeholderTextColor="#999"
-        value={ssn || undefined}
+        value={ssn ?? ''}
         onChangeText={setSSN}
         keyboardType="numeric"
         maxLength={4}
@@ -52,9 +65,19 @@ export default function PreGame() {
 
       <TextInput
         style={styles.input}
-        placeholder="1 (sober) to 10 (very high)"
+        placeholder="Age"
         placeholderTextColor="#999"
-        value={highLevel || undefined}
+        value={age ?? ''}
+        onChangeText={setAge}
+        keyboardType="numeric"
+        maxLength={2}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="1 (sober) to 10 (passed out)"
+        placeholderTextColor="#999"
+        value={highLevel ?? ''}
         onChangeText={setHighLevel}
         keyboardType="numeric"
         maxLength={2}

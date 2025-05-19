@@ -5,12 +5,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 export default function PreMemoryGame() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { name, ssn, highLevel } = params;
+  const { name, ssn, highLevel, age } = params;
 
   const handleStart = () => {
     router.push({
       pathname: '/game',
-      params: { name, ssn, highLevel, reset: 'true' },
+      params: { name, ssn, highLevel, age, reset: 'true' },
     });
   };
 

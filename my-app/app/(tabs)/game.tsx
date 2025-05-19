@@ -4,12 +4,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MemoryGame() {
-  const { name, ssn, highLevel, reset } = useLocalSearchParams();
+  const { name, ssn, highLevel, age, reset } = useLocalSearchParams();
   const router = useRouter();
 
   const playerName = typeof name === 'string' ? name : '';
   const playerSSN = typeof ssn === 'string' ? ssn : '';
   const playerHighLevel = typeof highLevel === 'string' ? highLevel : '';
+  const playerAge = typeof age === 'string' ? age : '';
 
   const [dotPosition, setDotPosition] = useState({ top: 0, left: 0 });
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
@@ -83,7 +84,7 @@ export default function MemoryGame() {
       resetGame();
       router.replace({
         pathname: '/game',
-        params: { name: playerName, ssn: playerSSN, highLevel: playerHighLevel, reset: undefined },
+        params: { name: playerName, ssn: playerSSN, highLevel: playerHighLevel, age: playerAge, reset: undefined },
       });
     }
   }, [reset]);
@@ -118,6 +119,7 @@ useEffect(() => {
         highLevel: playerHighLevel,
         score: score.toString(),
         averageTime: averageTime.toString(),
+        age: playerAge,
       },
     });
   }

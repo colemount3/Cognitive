@@ -1,23 +1,28 @@
-// app/TransferScreen.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function TransferScreen() {
   const router = useRouter();
-  const { name, ssn, highLevel, score, averageTime } = useLocalSearchParams();
+  const { name, ssn, highLevel, score, averageTime, age } = useLocalSearchParams();
+  const [firstTap, setFirstTap] = useState(false);
 
-  const handleContinue = () => {
-    router.push({
-      pathname: '/TracingGame',
-      params: {
-        name,
-        ssn,
-        highLevel,
-        score,
-        averageTime,
-      },
-    });
+  const handleTap = () => {
+    if (!firstTap) {
+      setFirstTap(true);
+    } else {
+      router.push({
+        pathname: '/TracingGame',
+        params: {
+          name,
+          ssn,
+          highLevel,
+          score,
+          averageTime,
+          age,
+        },
+      });
+    }
   };
 
   return (
@@ -25,11 +30,14 @@ export default function TransferScreen() {
       <Text style={styles.instructions}>
         Trace the shapes quickly but accurately.
       </Text>
-      <Text style={styles.subText}>Tap anywhere to start</Text>
+      <Text style={styles.subText}>
+        {firstTap ? 'Tap again to start' : 'Tap twice to start'}
+      </Text>
 
       <TouchableOpacity
         style={styles.fullscreenButton}
-        onPress={handleContinue}
+        onPress={handleTap}
+        activeOpacity={1}
       />
     </View>
   );

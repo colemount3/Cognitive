@@ -11,6 +11,7 @@ type GameHistoryEntry = {
   tracingScore: string | number;
   score: string | number;
   averageTime: string | number;
+  age: string | number;
   date: string;
 };
 
@@ -71,6 +72,7 @@ export default function GameHistory() {
               <Text style={styles.cardText}>SSN: ***-**-{entry.ssn?.slice(-4) || 'XXXX'}</Text>
               <Text style={styles.cardText}>THC Intoxication Level: {entry.highLevel || 'N/A'}</Text>
               <Text style={styles.cardText}>Tracing Score: {entry.tracingScore || 'N/A'} /1000</Text>
+              <Text style={styles.cardText}>Age: {entry.age || 'N/A'}</Text>
               <Text style={styles.cardText}>
                 Score: {entry.score ?? entry.score ?? 'N/A'}
               </Text>
