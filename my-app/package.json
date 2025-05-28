@@ -23,6 +23,7 @@
     "@terrylinla/react-native-sketch-canvas": "^0.8.0",
     "@types/react": "~19.0.10",
     "expo": "~53.0.0",
+    "expo-asset": "^11.1.5",
     "expo-blur": "~14.1.4",
     "expo-constants": "~17.1.5",
     "expo-font": "~13.3.1",

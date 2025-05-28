@@ -55,7 +55,7 @@ export default function PreGame() {
 
       <TextInput
         style={styles.input}
-        placeholder="Last 4 of SSN"
+        placeholder="Pick a 4 digit code, use same code every time"
         placeholderTextColor="#999"
         value={ssn ?? ''}
         onChangeText={setSSN}

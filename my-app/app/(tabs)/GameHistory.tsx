@@ -40,7 +40,7 @@ export default function GameHistory() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Game History</Text>
+        <Text style={styles.title}>Evaluation History</Text>
         <Text>Loading...</Text>
       </View>
     );
@@ -49,15 +49,15 @@ export default function GameHistory() {
   if (!history || history.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Game History</Text>
-        <Text style={styles.emptyText}>No game history available.</Text>
+        <Text style={styles.title}>Evaluation History</Text>
+        <Text style={styles.emptyText}>No evaluatoin history available.</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Game History</Text>
+      <Text style={styles.title}>Evaluation History</Text>
       <ScrollView>
         {history
           .slice()

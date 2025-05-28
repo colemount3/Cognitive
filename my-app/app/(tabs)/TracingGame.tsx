@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
-const stages = ['Trace the figure 8', 'Completely fill the circle', 'Accurately trace the lines'];
+const stages = ['Trace the figure 8', 'Completely fill the circle', 'Accurately trace the lines. '];
 
 const eight = [
   'M175,235 A80,80 0 1,1 165,235.5 A80,80 0 1,1 175,235',
@@ -96,7 +96,7 @@ const TracingGame = () => {
   const [stageIndex, setStageIndex] = useState(0);
   const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
   const [paths, setPaths] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(30);
   const [uncovered, setUncovered] = useState(1000);
   const [extraInk, setExtraInk] = useState(0);
   const [tracingScore, setTracingScore] = useState(1000);
@@ -110,7 +110,7 @@ const TracingGame = () => {
       setStageIndex(0);
       setPoints([]);
       setPaths([]);
-      setTimeLeft(60);
+      setTimeLeft(30);
       setUncovered(1000);
       setExtraInk(0);
       setTracingScore(1000);
@@ -235,7 +235,7 @@ const TracingGame = () => {
       setStageIndex(stageIndex + 1);
       setPoints([]);
       setPaths([]);
-      setTimeLeft(60);
+      setTimeLeft(30);
       setUncovered(1000);
       setExtraInk(0);
       setContinueDisabled(false);
@@ -266,7 +266,7 @@ const TracingGame = () => {
         setStageIndex(0);
         setPoints([]);
         setPaths([]);
-        setTimeLeft(60);
+        setTimeLeft(30);
         setUncovered(1000);
         setExtraInk(0);
         setTracingScore(1000);

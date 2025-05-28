@@ -28,7 +28,7 @@ export default function TransferScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.instructions}>
-        Trace the shapes quickly but accurately.
+        Trace the shapes quickly but accurately. Points will be lost for marking outside the lines or not filling shapes completely
       </Text>
       <Text style={styles.subText}>
         {firstTap ? 'Tap again to start' : 'Tap twice to start'}
