@@ -5,12 +5,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 export default function PreMemoryGame() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { name, ssn, highLevel, age } = params;
-
+  const { name, ssn, age } = params;
+console.log('DEBUG pregame:', { name, ssn, age });
   const handleStart = () => {
     router.push({
       pathname: '/game',
-      params: { name, ssn, highLevel, age, reset: 'true' },
+      params: { name, ssn, age, reset: 'true' },
     });
   };
 
@@ -19,7 +19,7 @@ export default function PreMemoryGame() {
       <View>
         <Text style={styles.title}>Get Ready!</Text>
         <Text style={styles.instruction}>
-          Press the red button as quickly as possible.
+          When the brake lights turn on, press anywhere on the screen.
         </Text>
         <Text style={styles.instruction}>
           Press anywhere to begin.

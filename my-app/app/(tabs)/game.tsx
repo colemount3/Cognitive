@@ -35,7 +35,7 @@ export default function MemoryGame() {
   };
 
   const [assetsLoaded, setAssetsLoaded] = useState(false);
-
+ console.log('DEBUG:', { name, ssn, age });
   useEffect(() => {
     async function loadAssets() {
       await Asset.loadAsync(require('../../assets/Carrear.png'));
@@ -78,7 +78,7 @@ export default function MemoryGame() {
     setBrakeOn(false);
     setStartTime(null);
 
-    if (numResponses + 1 >= 10) {
+    if (numResponses + 1 >= 2) { ////// change back to 10 later
       setGameState('finished');
       if (intervalId) clearInterval(intervalId);
       if (brakeTimeout.current) clearTimeout(brakeTimeout.current);
@@ -191,9 +191,9 @@ export default function MemoryGame() {
 
           <View style={[styles.road, {
             width: Math.min(screenWidth * 0.9, 500),
-            height: Math.max(screenHeight * 0.18, 100),
+            height: Math.max(screenHeight * 0.18,100),
             position: 'absolute',
-            bottom: 0,
+            bottom: 100,
             alignSelf: 'center',
             zIndex: 1,
           }]}>
@@ -260,7 +260,7 @@ export default function MemoryGame() {
                 params: {
                   name: playerName,
                   ssn: playerSSN,
-                  highLevel: playerHighLevel,
+                  score: reactionTimes.length.toString(),
                 },
               })
             }

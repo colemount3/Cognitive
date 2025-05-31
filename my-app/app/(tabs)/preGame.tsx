@@ -22,10 +22,9 @@ export default function PreGame() {
   const startGame = () => {
     if (
       (name || '').trim() === '' ||
-      (ssn || '').trim().length !== 4 ||
-      !/^[1-9]$|^10$/.test((highLevel || '').trim())
-    ) {
-      Alert.alert('Error', 'Please enter your name, last 4 of SSN, and a number from 1 to 10 for how high you are.');
+      (ssn || '').trim().length !== 4 )
+     {
+      Alert.alert('Error', 'Please enter your name, 4 digit code, and a number from 1 to 10 for how high you are.');
       setName(undefined); //  show placeholder
       setSSN(undefined);
       setHighLevel(undefined);
@@ -34,15 +33,15 @@ export default function PreGame() {
 
     router.push({
       pathname: '/reactionTransfer',
-      params: { name, ssn, highLevel, age, reset: 'true' },
+      params: { name, ssn, age, reset: 'true' },
     });
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Player Info</Text>
+      <Text style={styles.title}>Participant Info</Text>
       <Text style={styles.subtitle}>
-        Please enter your name, last 4 of SSN, age, and a number from 1 to 10 for how high you are.
+        Please enter your name, 4 digit code, age, and a number from 1 to 10 for how high you are.
       </Text>
 
       <TextInput
@@ -73,17 +72,9 @@ export default function PreGame() {
         maxLength={2}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="1 (sober) to 10 (passed out)"
-        placeholderTextColor="#999"
-        value={highLevel ?? ''}
-        onChangeText={setHighLevel}
-        keyboardType="numeric"
-        maxLength={2}
-      />
+      
 
-      <Button title="Start Game" onPress={startGame} />
+      <Button title="Start Evaluation" onPress={startGame} />
     </View>
   );
 }

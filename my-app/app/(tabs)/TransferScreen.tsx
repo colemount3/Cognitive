@@ -28,7 +28,12 @@ export default function TransferScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.instructions}>
-        Trace the shapes quickly but accurately. Points will be lost for marking outside the lines or not filling shapes completely
+        KEEP CONTROL! 🚗  
+        {'\n\n'}Swipe left or right to stay in the lanes.  
+        {'\n'}Leaving the lanes will lower your score.  
+        {'\n'}Stay in your lane at all costs.  
+        {'\n\n'}The game gets faster.  
+        {'\n'}Survive for 60 seconds to win!
       </Text>
       <Text style={styles.subText}>
         {firstTap ? 'Tap again to start' : 'Tap twice to start'}
@@ -49,12 +54,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
+    paddingHorizontal: 20,
   },
   instructions: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    lineHeight: 30,
   },
   subText: {
     fontSize: 18,

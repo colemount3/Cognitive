@@ -1,402 +1,367 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Button, Dimensions, PanResponder, ActivityIndicator } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, Dimensions, PanResponder, Image, Animated, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 
-const stages = ['Trace the figure 8', 'Completely fill the circle', 'Accurately trace the lines. '];
+const GAME_DURATION = 60; // seconds
+const START_SCORE = 100;
+const CAR_WIDTH = 200;
+const CAR_HEIGHT = 300;
+const LANE_WIDTH = 20;
+const LANE_GAP = 220;
+const DASH_HEIGHT = 40;
+const DASH_GAP = 30;
+const DASH_COLOR = '#fff';
 
-const eight = [
-  'M175,235 A80,80 0 1,1 165,235.5 A80,80 0 1,1 175,235',
-];
-const circle = [
-  'M275,235 A100,100 0 1,1 275,234.99 Z',
-];
-const lines = [
-  'M50,200 H300',
-  'M50,300 H300',
-  'M50,400 H300',
-  'M50,100 H300',
-];
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const stageShapes = [eight, circle, lines];
+export default function FireLaneGame({ route }) {
+  // Get params sent from previous screen
+  const { name, ssn, score: prevScore, age, reset } = useLocalSearchParams();
 
-function distance(p1: { x: number; y: number }, p2: { x: number; y: number }) {
-  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
-}
+  // Use params from router or route (for compatibility)
+  const playerName = name ?? (route?.params?.name ?? '');
+  const playerSSN = ssn ?? (route?.params?.ssn ?? '');
+  const playerAge = age ?? (route?.params?.age ?? '');
+  const previousScore = prevScore ?? (route?.params?.score ?? '');
 
-function sampleShapePoints(stageIndex: number, numSamples: number): { x: number; y: number }[] {
-  const points: { x: number; y: number }[] = [];
-  if (stageIndex === 0) {
-    const cx1 = 175, cy1 = 320, rx1 = 80, ry1 = 80;
-    const cx2 = 165, cy2 = 155.5, rx2 = 80, ry2 = 80;
-    for (let i = 0; i < numSamples / 2; i++) {
-      const theta = (2 * Math.PI * i) / (numSamples / 2);
-      points.push({
-        x: cx1 + rx1 * Math.cos(theta),
-        y: cy1 + ry1 * Math.sin(theta),
-      });
-    }
-    for (let i = 0; i < numSamples / 2; i++) {
-      const theta = (2 * Math.PI * i) / (numSamples / 2);
-      points.push({
-        x: cx2 + rx2 * Math.cos(theta),
-        y: cy2 + ry2 * Math.sin(theta),
-      });
-    }
-  } else if (stageIndex === 1) {
-    const cx = 175, cy = 235, r = 105;
-    const steps = Math.sqrt(numSamples);
-    for (let i = 0; i < steps; i++) {
-      for (let j = 0; j < steps; j++) {
-        const xNorm = (i / (steps - 1)) * 2 - 1;
-        const yNorm = (j / (steps - 1)) * 2 - 1;
-        if (xNorm * xNorm + yNorm * yNorm <= 1) {
-          points.push({
-            x: cx + r * xNorm,
-            y: cy + r * yNorm,
-          });
-        }
-      }
-    }
-    const circumferenceSamples = Math.floor(numSamples / 2);
-    for (let i = 0; i < circumferenceSamples; i++) {
-      const theta = (2 * Math.PI * i) / circumferenceSamples;
-      points.push({
-        x: cx + r * Math.cos(theta),
-        y: cy + r * Math.sin(theta),
-      });
-    }
-  } else if (stageIndex === 2) {
-    const lines = [
-      { y: 200 }, { y: 300 }, { y: 400 }, { y: 100 }
-    ];
-    lines.forEach(line => {
-      for (let i = 0; i < numSamples / 4; i++) {
-        const x = 50 + ((300 - 50) * i) / (numSamples / 4 - 1);
-        points.push({ x, y: line.y });
-      }
-    });
-  }
-  return points;
-}
+  const [laneCenterX, setLaneCenterX] = useState(SCREEN_WIDTH / 2);
+  const [laneDirection, setLaneDirection] = useState(1);
+  const [carX, setCarX] = useState((SCREEN_WIDTH - CAR_WIDTH) / 2);
+  const [score, setScore] = useState(START_SCORE);
+  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const [gameOver, setGameOver] = useState(false);
 
-const TracingGame = () => {
-  const hasSavedRef = useRef(false);
+  const [targetX, setTargetX] = useState(SCREEN_WIDTH / 2);
+
+  const [countdown, setCountdown] = useState(3);
+  const [showCountdown, setShowCountdown] = useState(true);
+
+  const patternIndexRef = useRef(0);
+
+  const carY = SCREEN_HEIGHT * 0.3;
+
+  const dashAnim = useRef(new Animated.Value(0)).current;
+
   const router = useRouter();
-  const { name, ssn, highLevel, score, averageTime, age } = useLocalSearchParams();
-  const playerName = typeof name === 'string' ? name : '';
-  const playerSSN = typeof ssn === 'string' ? ssn : '';
-  const playerHighLevel = typeof highLevel === 'string' ? highLevel : '';
-  const playerScore = typeof score === 'string' || typeof score === 'number' ? score : '';
-  const playerAverageTime = typeof averageTime === 'string' || typeof averageTime === 'number' ? averageTime : '';
-  const playerAge = typeof age === 'string' ? age : '';
 
-  const [stageIndex, setStageIndex] = useState(0);
-  const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
-  const [paths, setPaths] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(30);
-  const [uncovered, setUncovered] = useState(1000);
-  const [extraInk, setExtraInk] = useState(0);
-  const [tracingScore, setTracingScore] = useState(1000);
-  const [continueDisabled, setContinueDisabled] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const stageScores = useRef<number[]>([0, 0, 0]);
-  const lastUpdate = useRef(Date.now());
+  const getCurrentSpeed = () => {
+    const progress = 1 - timeLeft / GAME_DURATION;
+    return 2 + (7 - 2) * progress;
+  };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      setStageIndex(0);
-      setPoints([]);
-      setPaths([]);
-      setTimeLeft(30);
-      setUncovered(1000);
-      setExtraInk(0);
-      setTracingScore(1000);
-      stageScores.current = [0, 0, 0];
-      setContinueDisabled(false);
-      hasSavedRef.current = false;
-    }, [])
-  );
+  const lanePatternTargets = [
+    SCREEN_WIDTH - LANE_GAP / 2,
+    SCREEN_WIDTH / 2 + (SCREEN_WIDTH - LANE_GAP) * 0.25,
+    LANE_GAP / 2,
+    SCREEN_WIDTH - LANE_GAP / 2,
+    SCREEN_WIDTH / 2 - (SCREEN_WIDTH - LANE_GAP) * 0.16,
+    SCREEN_WIDTH - LANE_GAP / 2,
+    LANE_GAP / 2,
+    SCREEN_WIDTH / 2 + (SCREEN_WIDTH - LANE_GAP) * 0.16,
+    LANE_GAP / 2,
+  ];
+
+  const pickNewTarget = () => {
+    const end = lanePatternTargets[patternIndexRef.current % lanePatternTargets.length];
+    patternIndexRef.current++;
+    return end;
+  };
 
   useEffect(() => {
-    if (timeLeft <= 0) return; // Don't start interval if timer is 0
+    setLaneCenterX(SCREEN_WIDTH / 2);
+    patternIndexRef.current = 0;
+    setTargetX(() => lanePatternTargets[0]);
+    setLaneDirection(1);
+  }, [showCountdown]);
 
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        calculateScore();
-        if (prev <= 0.1) {
-          clearInterval(interval); // Stop interval when timer hits 0
+  const BUFFER = 90;
+
+  useEffect(() => {
+    if (showCountdown) return;
+    const leftLaneX = laneCenterX - LANE_GAP / 2;
+    const rightLaneX = laneCenterX + LANE_GAP / 2;
+    if (
+      carX < leftLaneX + LANE_WIDTH - BUFFER ||
+      carX + CAR_WIDTH > rightLaneX + BUFFER
+    ) {
+      setScore(s => (s > 0 ? s - 0.25 : 0));
+    }
+  }, [carX, laneCenterX, showCountdown]);
+
+  useEffect(() => {
+    if (!showCountdown) return;
+    setCountdown(3);
+    setLaneCenterX(SCREEN_WIDTH / 2);
+    patternIndexRef.current = 0;
+    setTargetX(() => lanePatternTargets[0]);
+    setLaneDirection(1);
+
+    let timer;
+    timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === 1) {
+          clearInterval(timer);
+          setShowCountdown(false);
           return 0;
         }
-        return +(prev - 0.1).toFixed(1);
+        return prev - 1;
       });
-    }, 100);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showCountdown]);
 
+  useEffect(() => {
+    if (gameOver || showCountdown) return;
+    let interval = setInterval(() => {
+      const speed = getCurrentSpeed();
+      setLaneCenterX(prev => {
+        let next = prev + laneDirection * speed;
+        if (
+          (laneDirection === 1 && next >= targetX) ||
+          (laneDirection === -1 && next <= targetX)
+        ) {
+          setLaneDirection(d => -d);
+          setTargetX(pickNewTarget());
+        }
+        return next;
+      });
+    }, 30);
     return () => clearInterval(interval);
-  }, [stageIndex, timeLeft]);
+  }, [gameOver, laneDirection, targetX, timeLeft, showCountdown]);
 
-  const calculateScore = () => {
-    const numSamples = 400;
-    const threshold = 12;
-    const pathPoints = sampleShapePoints(stageIndex, numSamples);
+  useEffect(() => {
+    if (gameOver || showCountdown) return;
+    if (timeLeft <= 0) {
+      setGameOver(true);
+      return;
+    }
+    const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [timeLeft, gameOver, showCountdown]);
 
-    let missed = 0;
-    pathPoints.forEach((shapePoint) => {
-      const isCovered = points.some(userPoint => distance(userPoint, shapePoint) < threshold);
-      if (!isCovered) missed++;
-    });
-    let uncoveredScore = Math.round(1000 * (missed / pathPoints.length));
-    setUncovered(uncoveredScore);
+  useEffect(() => {
+    if (gameOver || showCountdown) return;
+    dashAnim.setValue(0);
+    Animated.loop(
+      Animated.timing(dashAnim, {
+        toValue: DASH_HEIGHT + DASH_GAP,
+        duration: 150,
+        useNativeDriver: false,
+      })
+    ).start();
+  }, [gameOver, showCountdown]);
 
-    let outsideInk = 0;
-    points.forEach((userPoint) => {
-      const isInside = pathPoints.some(shapePoint => distance(userPoint, shapePoint) < threshold);
-      if (!isInside) outsideInk++;
-    });
-    setExtraInk(outsideInk);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (e, gestureState) => {
+        const newX = Math.min(
+          Math.max(gestureState.moveX - CAR_WIDTH / 2, 0),
+          SCREEN_WIDTH - CAR_WIDTH
+        );
+        setCarX(newX);
+      },
+    })
+  ).current;
 
-    const finalScore = Math.max(1000 - (uncoveredScore + outsideInk), 0);
-    stageScores.current[stageIndex] = finalScore;
+  const leftLaneX = laneCenterX - LANE_GAP / 2;
+  const rightLaneX = laneCenterX + LANE_GAP / 2;
 
-    // Calculate average completed stages
-    const validScores = stageScores.current.slice(0, stageIndex + 1).filter(s => typeof s === 'number');
-    const averageScore = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
-    setTracingScore(averageScore);
-  };
+  const dashedLanes = useMemo(() => {
+    const renderDashedLane = (left) => {
+      const dashCount = Math.ceil(SCREEN_HEIGHT * 0.8 / (DASH_HEIGHT + DASH_GAP)) + 2;
+      const dashes = [];
+      for (let i = 0; i < dashCount; i++) {
+        dashes.push(
+          <Animated.View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: left,
+              width: LANE_WIDTH,
+              height: DASH_HEIGHT,
+              backgroundColor: DASH_COLOR,
+              borderRadius: 6,
+              opacity: 1,
+              top: dashAnim.interpolate({
+                inputRange: [0, DASH_HEIGHT + DASH_GAP],
+                outputRange: [
+                  i * (DASH_HEIGHT + DASH_GAP),
+                  i * (DASH_HEIGHT + DASH_GAP) + (DASH_HEIGHT + DASH_GAP),
+                ],
+              }),
+            }}
+          />
+        );
+      }
+      return dashes;
+    };
+    return (
+      <>
+        {renderDashedLane(leftLaneX)}
+        {renderDashedLane(rightLaneX)}
+      </>
+    );
+  }, [leftLaneX, rightLaneX, dashAnim]);
 
-  const saveTracingToHistory = async (finalTracingScore: number) => {
-    try {
-      const existingHistoryString = await AsyncStorage.getItem('gameHistory');
-      const existingHistory = existingHistoryString ? JSON.parse(existingHistoryString) : [];
-
-      const newEntry = {
+  // Handler for navigating to GameHistory with all required params
+  const goToHistory = () => {
+    router.push({
+      pathname: '/GameHistory',
+      params: {
         name: playerName,
         ssn: playerSSN,
-        highLevel: playerHighLevel,
-        score: playerScore,
-        averageTime: playerAverageTime,
-        tracingScore: finalTracingScore,
+        tracingScore: Math.round(score * 10) / 10,
+        score: previousScore,
         age: playerAge,
         date: new Date().toISOString(),
-      };
-
-      const updatedHistory = [newEntry, ...existingHistory];
-      await AsyncStorage.setItem('gameHistory', JSON.stringify(updatedHistory));
-
-      console.log('[DEBUG] Sending to Google Sheet:', JSON.stringify(newEntry));
-
-      const response = await fetch('https://script.google.com/macros/s/AKfycbw62sTC7dL9y0ZKxyCVyPIelYK1whOwxQMhEfNmCz43q9DlhM7TrE2TxC16hCbL2aAM0A/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEntry),
-        mode: 'no-cors',
-      });
-
-      const responseText = await response.text();
-      console.log('[DEBUG] Response from Google Script:', responseText);
-
-      if (!response.ok) {
-        console.error('[ERROR] Google Script HTTP error:', response.status);
-      }
-
-    } catch (err) {
-      console.error('[ERROR] Failed to save tracing game history or send to Google Sheet:', err);
-    }
-  };
-
-  const handleContinue = async () => {
-    if (continueDisabled) return; // Prevent double call
-    setContinueDisabled(true);
-
-    //  calculate and store the score for the current stage 
-    const numSamples = 400;
-    const threshold = 12;
-    const pathPoints = sampleShapePoints(stageIndex, numSamples);
-
-    let missed = 0;
-    pathPoints.forEach((shapePoint) => {
-      const isCovered = points.some(userPoint => distance(userPoint, shapePoint) < threshold);
-      if (!isCovered) missed++;
-    });
-    let uncoveredScore = Math.round(1000 * (missed / pathPoints.length));
-
-    let outsideInk = 0;
-    points.forEach((userPoint) => {
-      const isInside = pathPoints.some(shapePoint => distance(userPoint, shapePoint) < threshold);
-      if (!isInside) outsideInk++;
+      },
     });
 
-    const finalScore = Math.max(1000 - (uncoveredScore + outsideInk), 0);
-    stageScores.current[stageIndex] = finalScore;
-
-    if (stageIndex < stages.length - 1) {
-      setStageIndex(stageIndex + 1);
-      setPoints([]);
-      setPaths([]);
-      setTimeLeft(30);
-      setUncovered(1000);
-      setExtraInk(0);
-      setContinueDisabled(false);
-    } else {
-      if (!hasSavedRef.current) {
-        hasSavedRef.current = true;
-        setLoading(true); //  loading
-
-        //  average tracing score from all three stages
-        const allScores = stageScores.current.slice(0, 3).filter(s => typeof s === 'number');
-        const finalTracingScore = Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
-        await saveTracingToHistory(finalTracingScore);
-
-        setLoading(false); // Hide loading indicator 
-        router.push({
-          pathname: '/GameHistory',
-          params: {
-            name: playerName,
-            ssn: playerSSN,
-            highLevel: playerHighLevel,
-            score: playerScore,
-            averageTime: playerAverageTime,
-            tracingScore: finalTracingScore,
-          },
-        });
-
-        // --- Reset TracingGame state for next player ---
-        setStageIndex(0);
-        setPoints([]);
-        setPaths([]);
-        setTimeLeft(30);
-        setUncovered(1000);
-        setExtraInk(0);
-        setTracingScore(1000);
-        stageScores.current = [0, 0, 0];
-        setContinueDisabled(false);
-        hasSavedRef.current = false;
-      }
-    }
+    // Reset all elements after navigating
+    setTimeout(() => {
+      setLaneCenterX(SCREEN_WIDTH / 2);
+      setLaneDirection(1);
+      setCarX((SCREEN_WIDTH - CAR_WIDTH) / 2);
+      setScore(START_SCORE);
+      setTimeLeft(GAME_DURATION);
+      setGameOver(false);
+      setTargetX(SCREEN_WIDTH / 2);
+      setCountdown(3);
+      setShowCountdown(true);
+      patternIndexRef.current = 0;
+    }, 300);
   };
-
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => timeLeft > 0,
-    onPanResponderGrant: (event) => {
-      if (timeLeft <= 0) return;
-      const { locationX: x, locationY: y } = event.nativeEvent;
-      if (!isFinite(x) || !isFinite(y)) return;
-      setPaths((prev) => [...prev, `M${x},${y}`]);
-      setPoints(prev => [...prev, { x, y }]);
-    },
-    onPanResponderMove: (event) => {
-      if (timeLeft <= 0) return;
-      const now = Date.now();
-      if (now - lastUpdate.current < 16) return;
-      lastUpdate.current = now;
-
-      const { locationX: x, locationY: y } = event.nativeEvent;
-      if (!isFinite(x) || !isFinite(y)) return;
-
-      setPaths((prev) => {
-        const updated = [...prev];
-        const currentPathIndex = updated.length - 1;
-        updated[currentPathIndex] += ` L${x},${y}`;
-        return updated;
-      });
-
-      setPoints((prev) => [...prev, { x, y }]);
-    },
-    onPanResponderRelease: () => {},
-  });
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tracing Game</Text>
-      <Text style={styles.subtitle}>{stages[stageIndex]}</Text>
-      <Text style={styles.timer}>Time left: {timeLeft.toFixed(1)}s</Text>
-
-      <View style={styles.canvasContainer} {...panResponder.panHandlers}>
-        <Svg
-          width={Dimensions.get('window').width - 40}
-          height={Dimensions.get('window').height / 2}
-        >
-          {stageShapes[stageIndex].map((shape, index) => (
-            <Path
-              key={`shape-${index}`}
-              d={shape}
-              stroke="#000"
-              strokeWidth={16}
-              fill={stageIndex === 1 ? '#000' : 'none'}
-              opacity={0.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-          {paths.map((path, index) => (
-            <Path
-              key={`path-${index}`}
-              d={path}
-              stroke="blue"
-              strokeWidth={12}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-        </Svg>
+      <Text style={styles.title}>🔥 KEEP CONTROL 🔥</Text>
+      <Text style={styles.score}>Score: {Math.round(score * 10) / 10}</Text>
+      <Text style={styles.timer}>Time Left: {timeLeft}s</Text>
+      <View style={styles.gameArea} {...panResponder.panHandlers}>
+        {dashedLanes}
+        <Image
+          source={require('../../assets/CarTop.png')}
+          style={{
+            position: 'absolute',
+            left: carX,
+            top: carY,
+            width: CAR_WIDTH,
+            height: CAR_HEIGHT,
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+          resizeMode="contain"
+        />
+        {/* Countdown Overlay */}
+        {showCountdown && (
+          <View style={styles.countdownOverlay}>
+            <Text style={styles.countdownText}>
+              {countdown > 0 ? countdown : 'GO!'}
+            </Text>
+          </View>
+        )}
+        {/* Evaluation Over Overlay */}
+        {gameOver && (
+          <View style={styles.evaluationOverlay}>
+            <Text style={styles.evaluationText}>Evaluation Over</Text>
+            <Text style={styles.evaluationScore}>
+              Your Score: {Math.round(score * 10) / 10}
+            </Text>
+            <TouchableOpacity style={styles.historyButton} onPress={goToHistory}>
+              <Text style={styles.historyButtonText}>Go to Game History?</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
-
-      <Button title="Continue" onPress={handleContinue} />
-
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#900" />
-          <Text style={{ marginTop: 16, fontSize: 18 }}>Saving results...</Text>
-        </View>
-      )}
     </View>
   );
-};
-
-export default TracingGame;
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 80,
+    backgroundColor: '#222',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    paddingTop: 40,
   },
   title: {
     fontSize: 28,
+    color: '#fff',
     fontWeight: 'bold',
-  },
-  subtitle: {
-    fontSize: 18,
-    marginTop: 10,
     marginBottom: 10,
-    color: '#555',
-  },
-  timer: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: '#900',
   },
   score: {
-    fontSize: 16,
+    fontSize: 20,
+    color: '#fff',
+    marginBottom: 5,
+  },
+  timer: {
+    fontSize: 18,
+    color: '#ff0',
     marginBottom: 10,
-    color: '#090',
   },
-  canvasContainer: {
-    width: Dimensions.get('window').width - 40,
-    height: Dimensions.get('window').height / 2,
-    backgroundColor: '#eee',
-    marginBottom: 20,
+  gameArea: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.8,
+    backgroundColor: '#111',
+    position: 'relative',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  loadingOverlay: {
+  countdownOverlay: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    top: 0,
+    left: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  countdownText: {
+    fontSize: 96,
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: '#ff6600',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 20,
+  },
+  evaluationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.8,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  evaluationText: {
+    fontSize: 48,
+    color: '#fff',
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  evaluationScore: {
+    fontSize: 32,
+    color: '#ff0',
+    marginBottom: 40,
+  },
+  historyButton: {
+    backgroundColor: '#ff6600',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  historyButtonText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: 'bold',
   },
 });

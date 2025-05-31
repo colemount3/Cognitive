@@ -69,13 +69,10 @@ export default function GameHistory() {
           .map((entry, index) => (
             <View key={index} style={styles.card}>
               <Text style={styles.cardText}>Name: {entry.name}</Text>
-              <Text style={styles.cardText}>SSN: ***-**-{entry.ssn?.slice(-4) || 'XXXX'}</Text>
-              <Text style={styles.cardText}>THC Intoxication Level: {entry.highLevel || 'N/A'}</Text>
-              <Text style={styles.cardText}>Tracing Score: {entry.tracingScore || 'N/A'} /1000</Text>
+              <Text style={styles.cardText}>ID Code: {entry.ssn?.slice(-4) || 'XXXX'}</Text>
+              <Text style={styles.cardText}>Driving Score: {entry.tracingScore || 'N/A'} /1000</Text>
               <Text style={styles.cardText}>Age: {entry.age || 'N/A'}</Text>
-              <Text style={styles.cardText}>
-                Score: {entry.score ?? entry.score ?? 'N/A'}
-              </Text>
+              
               <Text style={styles.cardText}>
                 Avg Time: {entry.averageTime ? (Number(entry.averageTime) / 1000).toFixed(2) + 's' : 'N/A'}
               </Text>
