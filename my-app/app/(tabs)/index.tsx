@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function HomeScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Welcome to THCognitive 🧠</Text>
+      <Text style={styles.text}>Welcome to Cognitive 🧠</Text>
     </View>
   );
 }

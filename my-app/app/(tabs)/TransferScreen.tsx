@@ -28,12 +28,11 @@ export default function TransferScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.instructions}>
-        KEEP CONTROL! 🚗  
+        KEEP CONTROL!   
         {'\n\n'}Swipe left or right to stay in the lanes.  
         {'\n'}Leaving the lanes will lower your score.  
         {'\n'}Stay in your lane at all costs.  
-        {'\n\n'}The game gets faster.  
-        {'\n'}Survive for 60 seconds to win!
+       
       </Text>
       <Text style={styles.subText}>
         {firstTap ? 'Tap again to start' : 'Tap twice to start'}

@@ -16,13 +16,15 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function FireLaneGame({ route }) {
   // Get params sent from previous screen
-  const { name, ssn, score: prevScore, age, reset } = useLocalSearchParams();
+  const { name, ssn, score: prevScore, age, reset, averageTime, highLevel } = useLocalSearchParams();
 
-  // Use params from router or route (for compatibility)
+  // Use params from router or route
   const playerName = name ?? (route?.params?.name ?? '');
   const playerSSN = ssn ?? (route?.params?.ssn ?? '');
   const playerAge = age ?? (route?.params?.age ?? '');
   const previousScore = prevScore ?? (route?.params?.score ?? '');
+  const playerAverageTime = averageTime ?? (route?.params?.averageTime ?? '');
+  const playerHighLevel = highLevel ?? (route?.params?.highLevel ?? '');
 
   const [laneCenterX, setLaneCenterX] = useState(SCREEN_WIDTH / 2);
   const [laneDirection, setLaneDirection] = useState(1);
@@ -205,34 +207,38 @@ export default function FireLaneGame({ route }) {
     );
   }, [leftLaneX, rightLaneX, dashAnim]);
 
-  // Handler for navigating to GameHistory with all required params
-  const goToHistory = () => {
-    router.push({
-      pathname: '/GameHistory',
-      params: {
-        name: playerName,
-        ssn: playerSSN,
-        tracingScore: Math.round(score * 10) / 10,
-        score: previousScore,
-        age: playerAge,
-        date: new Date().toISOString(),
-      },
-    });
+  // Automatically push to GameHistory when game is over
+  useEffect(() => {
+    if (gameOver) {
+      router.push({
+        pathname: '/GameHistory',
+        params: {
+          name: playerName,
+          ssn: playerSSN,
+          highLevel: playerHighLevel,
+          tracingScore: Math.round(score * 10) / 10,
+          score: previousScore,
+          averageTime: playerAverageTime,
+          age: playerAge,
+          date: new Date().toISOString(),
+        },
+      });
 
-    // Reset all elements after navigating
-    setTimeout(() => {
-      setLaneCenterX(SCREEN_WIDTH / 2);
-      setLaneDirection(1);
-      setCarX((SCREEN_WIDTH - CAR_WIDTH) / 2);
-      setScore(START_SCORE);
-      setTimeLeft(GAME_DURATION);
-      setGameOver(false);
-      setTargetX(SCREEN_WIDTH / 2);
-      setCountdown(3);
-      setShowCountdown(true);
-      patternIndexRef.current = 0;
-    }, 300);
-  };
+      // Reset all elements 
+      setTimeout(() => {
+        setLaneCenterX(SCREEN_WIDTH / 2);
+        setLaneDirection(1);
+        setCarX((SCREEN_WIDTH - CAR_WIDTH) / 2);
+        setScore(START_SCORE);
+        setTimeLeft(GAME_DURATION);
+        setGameOver(false);
+        setTargetX(SCREEN_WIDTH / 2);
+        setCountdown(3);
+        setShowCountdown(true);
+        patternIndexRef.current = 0;
+      }, 300);
+    }
+  }, [gameOver]);
 
   return (
     <View style={styles.container}>
@@ -269,9 +275,10 @@ export default function FireLaneGame({ route }) {
             <Text style={styles.evaluationScore}>
               Your Score: {Math.round(score * 10) / 10}
             </Text>
-            <TouchableOpacity style={styles.historyButton} onPress={goToHistory}>
+            {/* Optionally, you can keep the button for manual navigation */}
+            {/* <TouchableOpacity style={styles.historyButton} onPress={goToHistory}>
               <Text style={styles.historyButtonText}>Go to Game History?</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         )}
       </View>

@@ -12,16 +12,16 @@ export default function MemoryGame() {
   const playerHighLevel = typeof highLevel === 'string' ? highLevel : '';
   const playerAge = typeof age === 'string' ? age : '';
 
-  const [responseTime, setResponseTime] = useState(null);
+  const [responseTime, setResponseTime] = useState<number | null>(null);
   const [numResponses, setNumResponses] = useState(0);
-  const [startTime, setStartTime] = useState(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
   const [gameState, setGameState] = useState('waiting');
   const [timerId, setTimerId] = useState(null);
   const [intervalId, setIntervalId] = useState(null);
 
   const [brakeOn, setBrakeOn] = useState(false);
-  const [reactionTimes, setReactionTimes] = useState([]);
-  const brakeTimeout = useRef(null);
+  const [reactionTimes, setReactionTimes] = useState<number[]>([]);
+  const brakeTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
